@@ -30,8 +30,8 @@ Data = [
 %--------------------------------------------------------------------------
 % Laminate Setup & Loads
 %--------------------------------------------------------------------------
-Laminate = [6, 6, 6, 6, 6, 6, 6, 6];    % Choice of lamina materials (starts from bottom)
-theta    = [0, 90, 45, -45, -45, 45, 90, 0]; % Rotation of the respective laminae [deg]
+Laminate = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3];    % Choice of lamina materials (starts from bottom)
+theta    = [0, 0, 90, 45, -45, -45, 45, 90, 0, 0]; % [02 / 90 / +45 / -45]_s [deg]
 N        = [100, 100, 50];    % Normal forces [Nx, Ny, Nxy]
 M        = [0, 0, 0];    % Bending moments [Mx, My, Mxy]
 
@@ -81,6 +81,19 @@ for i = 1:length(Laminate)
     fprintf('  %d    |     %.4f    |     %.4f    |    %.4f\n', ...
         i, IF_MaxStress(i), IF_MaxStrain(i), IF_TsaiHill(i));
 end
+
+% 8. Homogenized Elastic Constants (Ex, Gxy)
+h = sum(LaminateData(5, :)); % Total thickness
+a_matrix = inv(A);           % Compliance matrix (inverse of A)
+Ex = 1 / (h * a_matrix(1, 1));
+Gxy = 1 / (h * a_matrix(3, 3));
+
+fprintf('\n--- Homogenized Elastic Constants ---\n');
+fprintf('Ex:  %.2f MPa\n', Ex);
+fprintf('Gxy: %.2f MPa\n', Gxy);
+
+fprintf('\n--- D Matrix (Bending Stiffness) [N*mm] ---\n');
+disp(D);
 
 
 %==========================================================================
