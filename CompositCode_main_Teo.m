@@ -10,16 +10,16 @@ clc; close all; clear;
 % Lamina    1           2           3             4             5             6           7
 % Fibre     E-glass     Boron       Carbon (HT)   Carbon (IM)   Kevlar 49     Carbon      Carbon
 Data = [
-            0.127       0.220       0.129         0.129         0.132         0.127       0.127;    % 1: Thickness
-            40          210         136           151           75            147         181;      % 2: E1
-            9.8         20          10            9.4           6             9           10.3;     % 3: E2
-            2.8         6           5.2           4.8           2             3.3         7.17;     % 4: G12
+            0.127       0.220       0.129         0.129         0.132         0.127       0.127;    % 1: Thickness [mm]
+            40000       210000      136000        151000        75000         147000      181000;   % 2: E1 [MPa]
+            9800        20000       10000         9400          6000          9000        10300;    % 3: E2 [MPa]
+            2800        6000        5200          4800          2000          3300        7170;     % 4: G12 [MPa]
             0.3         0.3         0.3           0.31          0.34          0.31        0.28;     % 5: nu12
-            1100        1400        1800          2260          1400          2260        1500;     % 6: Sigma1t
-            600         2800        1200          1200          280           1200        1500;     % 7: Sigma1c
-            20          80          40            50            30            50          40;       % 8: Sigma2t
-            140         280         220           190           140           190         246;      % 9: Sigma2c
-            70          120         80            100           60            100         68;       % 10: Tau12
+            1100        1400        1800          2260          1400          2260        1500;     % 6: Sigma1t [MPa]
+            600         2800        1200          1200          280           1200        1500;     % 7: Sigma1c [MPa]
+            20          80          40            50            30            50          40;       % 8: Sigma2t [MPa]
+            140         280         220           190           140           190         246;      % 9: Sigma2c [MPa]
+            70          120         80            100           60            100         68;       % 10: Tau12 [MPa]
             0.028       0.007       0.013         0.015         0.019         0.015       0.0083;   % 11: Epsilon1t
             0.015       0.013       0.009         0.008         0.004         0.008       0.0083;   % 12: Epsilon1c
             0.002       0.004       0.004         0.005         0.005         0.005       0.0039;   % 13: Epsilon2t
@@ -60,10 +60,27 @@ LaminateData = [Data([2, 3, 5, 4, 1], Laminate); nu21; theta];
 % 5. Stress ratios (f) for each lamina (maximum absolute value of top and bottom)
 f_bot = stressRatios(sigma_bot, Data(6:10, Laminate));
 f_top = stressRatios(sigma_top, Data(6:10, Laminate));
-f = maxAbs(f_bot, f_top)
+f = maxAbs(f_bot, f_top);
 
 % 6. Strain ratios (g) for each lamina (maximum absolute value of top and bottom)
-g = strainRatios(LaminateData, epsilon_bot, epsilon_top, Data(11:15, Laminate))
+g = strainRatios(LaminateData, epsilon_bot, epsilon_top, Data(11:15, Laminate));
+
+% 7. Fracture Criteria Index (IF) per lamina (IF >= 1 means failure)
+IF_MaxStress = max(abs(f), [], 1);
+IF_MaxStrain = max(abs(g), [], 1);
+
+th_bot = failureTsaiHill(sigma_bot, Data(6:10, Laminate));
+th_top = failureTsaiHill(sigma_top, Data(6:10, Laminate));
+IF_TsaiHill = max(th_bot, th_top);
+
+% Display results
+fprintf('\n--- Failure Analysis Results ---\n');
+fprintf('Lamina | Max Stress IF | Max Strain IF | Tsai-Hill IF\n');
+fprintf('-------|---------------|---------------|-------------\n');
+for i = 1:length(Laminate)
+    fprintf('  %d    |     %.4f    |     %.4f    |    %.4f\n', ...
+        i, IF_MaxStress(i), IF_MaxStrain(i), IF_TsaiHill(i));
+end
 
 
 %==========================================================================
@@ -253,4 +270,26 @@ function C = maxAbs(A, B)
     idx = abs(A) > abs(B);
     C = B;
     C(idx) = A(idx);
+end
+
+function th = failureTsaiHill(sigma, strengths)
+    % Calculates the Tsai-Hill failure index for each lamina interface
+    % strengths format: [Sigma1t; Sigma1c; Sigma2t; Sigma2c; Tau12]
+    
+    num_laminae = size(sigma, 2);
+    th = zeros(1, num_laminae);
+    
+    for i = 1:num_laminae
+        s1 = sigma(1, i);
+        s2 = sigma(2, i);
+        t12 = sigma(3, i);
+        
+        % Select strengths based on stress sign (tension/compression)
+        if s1 >= 0; X = strengths(1, i); else; X = strengths(2, i); end
+        if s2 >= 0; Y = strengths(3, i); else; Y = strengths(4, i); end
+        S = strengths(5, i);
+        
+        % Tsai-Hill criterion formula
+        th(i) = (s1/X)^2 - (s1*s2)/(X^2) + (s2/Y)^2 + (t12/S)^2;
+    end
 end
